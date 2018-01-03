@@ -9,10 +9,13 @@
 #include <sstream>
 #include <cstdlib>
 #include <vector>
+#include <algorithm>
+#include <iterator>
+using namespace std;
 
 std::string string_strip(const std::string &str) {
     std::locale loc;
-    
+
     std::string s = str;
     while (s.size() != 0 && std::isspace(s[0], loc)) {
         s.erase(s.begin());
@@ -23,12 +26,24 @@ std::string string_strip(const std::string &str) {
     return s;
 }
 
+
+std::string get_time() {
+	time_t rawtime;
+	struct tm * timeinfo;
+
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	return asctime(timeinfo);
+}
+
 std::map<std::string, std::string> get_config(const char *filename)
 {
+  cout << get_time() << "Log Info ****"
+       << "Begin get_config...\n";
     std::map<std::string, std::string> res;
-    
+
     std::ifstream fin(filename);
-    
+
     std::string s;
     int line_num = 0;
     while (getline(fin, s)) {
@@ -49,31 +64,24 @@ std::map<std::string, std::string> get_config(const char *filename)
         int pos = s.find('=');
         res[string_strip(s.substr(0, pos))] = string_strip(s.substr(pos + 1));
     }
+    cout << get_time() << "Log Info ****"
+         << "Begin get_config...\n";
     return res;
 }
 
+
 std::vector<std::string> get_tokens(const std::string &str)
 {
-    std::vector<std::string> res;
-    std::string cur;
-    std::locale loc;
-    for (int i = 0; i <= (int) str.length(); ++i) {
-        if (i == (int) str.length() || isspace(str[i], loc)) {
-            while (cur.length() && ispunct(cur[(int) cur.length() - 1], loc)) {
-                cur.erase(cur.length() - 1, 1);
-            }
-            while (cur.length() && ispunct(cur[0], loc)) {
-                cur.erase(0, 1);
-            }
-            if (cur != "") {
-                res.push_back(cur);
-                cur = "";
-            }
-        } else {
-            cur.push_back(str[i]);
-        }
-    }
-    return res;
+  cout << get_time() << "Log Info ****"
+       << "Begin get_tokens {" << str <<"}...\n";
+  std::vector<std::string> vec;
+  istringstream iss(str);
+  copy(istream_iterator<string>(iss),
+       istream_iterator<string>(),
+       back_inserter(vec));
+  cout << get_time() << "Log Info ****"
+       << "end get_tokens...\n";
+  return vec;
 }
 
 int string_to_int(const std::string &str)

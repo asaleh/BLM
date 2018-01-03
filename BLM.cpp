@@ -37,11 +37,17 @@ map<string, string> config;
 map<string, int> encode_node;
 vector<string> decode_node;
 
+
+
 void load_network(const char *filename)
 {
+
+  cout << get_time() << "Log Info ****"
+       << "Begin load_network...\n";
+
     number_of_nodes = 0;
     number_of_edges = 0;
-    
+
     string line;
     vector<string> tokens;
     ifstream fin(filename);
@@ -68,36 +74,48 @@ void load_network(const char *filename)
         number_of_edges++;
     }
     fin.close();
+    cout << get_time() << "Log Info **** "<< number_of_edges << endl;
+    cout << get_time() << "Log Info **** "<< edges_src.size() << endl;
+    cout << get_time() << "Log Info **** "<< tokens.size() << endl;
+    cout << get_time() << "Log Info ****"
+         << "End load_network...\n";
 }
 
 void initialize_variables()
 {
+  cout << get_time() << "Log Info ****"
+          << "Begin initialize_variables...\n";
+
     vector_size = string_to_int(config["vector_size"]);
     nu = string_to_int(config["nu"]);
     number_of_epoch = string_to_int(config["number_of_epoch"]);
     number_of_threads = string_to_int(config["number_of_threads"]);
     eta = string_to_ldouble(config["eta"]);
     gamma_ = string_to_ldouble(config["gamma"]);
+    cout << get_time() << "Log Info ****"
+         << "End initialize_variables...\n";
 }
 
 void initialize_model()
 {
+  cout << get_time() << "Log Info ****"
+       << "Begin initialize_model...\n";
     Z = (float *)calloc(number_of_nodes, sizeof(*Z));
     In = (float **)calloc(number_of_nodes, sizeof(*In));
     Out = (float **)calloc(number_of_nodes, sizeof(*Out));
-    
+
     float Z_init = log(number_of_nodes);
     for (int i = 0; i < number_of_nodes; ++i) {
         In[i] = (float *)calloc(vector_size, sizeof(*In[i]));
         Out[i] = (float *)calloc(vector_size, sizeof(*Out[i]));
         Z[i] = Z_init;
-        
+
         for (int j = 0; j < vector_size; ++j) {
             In[i][j] = (rand_double() - 0.5) / vector_size;
             Out[i][j] = (rand_double() - 0.5) / vector_size;
         }
     }
-    
+
     p_n = (float *)calloc(number_of_nodes, sizeof(*p_n));
     for (int i = 0; i < number_of_edges; ++i) {
         p_n[edges_src[i]] += 1.0;
@@ -106,33 +124,39 @@ void initialize_model()
     for (int i = 0; i < number_of_nodes; ++i) {
         p_n[i] /= number_of_edges * 2.0;
     }
+    cout << get_time() << "Log Info ****"
+         << "End initialize_model...\n";
 }
 
 void learn_edge(int u, int v, float w, int k)
 {
+  cout << get_time() << "Log Info ****"
+       << "Begin learn_edge...\n";
     float sp = 0;
-    
+
     for (int t = 0; t < vector_size; ++t) {
         sp += In[u][t] * Out[v][t];
     }
-    
+
     float pm0 = exp(sp - Z[u]);
-    
+
     float nu_pn = nu * p_n[v];
-    
+
     float coeff;
-    
+
     if (k == 1) {
         coeff = nu_pn / (pm0 + nu_pn);
     } else {
         coeff = -pm0 / (pm0 + nu_pn);
     }
-    
+
     for (int t = 0; t < vector_size; ++t) {
         In[u][t] += eta * w * (coeff * Out[v][t] - 2.0 * gamma_ * In[u][t]);
         Out[v][t] += eta * w * (coeff * In[u][t] - 2.0 * gamma_ * Out[v][t]);
     }
     Z[u] += -eta * w * coeff;
+    cout << get_time() << "Log Info ****"
+         << "End learn_edge...\n";
 }
 
 class LearnThread: public Thread
@@ -145,14 +169,16 @@ public:
         rnd_raw = (unsigned long long)(&begin);
     }
     void run() {
+      cout << get_time() << "Log Info ****"
+           << "Begin run ...\n";
         int rnd_border = ((1LL << 31) / (2 * number_of_edges)) * (2 * number_of_edges);
-        
+
         for (int i = begin; i < end; ++i) {
             int u, v;
             u = edges_src[i], v = edges_dst[i];
             float w;
             w = edges_weight[i];
-            
+
             for (int j = 0; j < nu; ++j) {
                 int rnd;
                 while ((rnd = ((rnd_raw = rnd_raw * rnd_a + rnd_c) >> 33)) >= rnd_border);
@@ -164,39 +190,47 @@ public:
                 } else {
                     noise_v = edges_dst[rnd - number_of_edges];
                 }
-                
+
                 learn_edge(u, noise_v, w, -1);
             }
             learn_edge(u, v, w, 1);
         }
+        cout << get_time() << "Log Info ****"
+             << "end run...\n";
     }
 };
 
 void learn_model()
 {
+  cout << get_time() << "Log Info ****"
+       << "Begin learn_model ...\n";
     LearnThread **threads = (LearnThread **)calloc(number_of_threads, sizeof(*threads));
-    
-	for (int epoch = 0; epoch < number_of_epoch; ++epoch) {
+
+  for (int epoch = 0; epoch < number_of_epoch; ++epoch) {
         for (int i = 0; i < number_of_threads; ++i) {
             int begin = (number_of_edges / number_of_threads) * i;
             int end = (number_of_edges / number_of_threads) * (i + 1);
             if (i == number_of_threads - 1) {
                 end = number_of_edges;
             }
-            
+
             threads[i] = new LearnThread(begin, end);
             threads[i]->start();
         }
-        
+
         for (int i = 0; i < number_of_threads; ++i) {
             threads[i]->wait();
             delete threads[i];
         }
-	}
+  }
+  cout << get_time() << "Log Info ****"
+       << "End learn_model...\n";
 }
 
 void write_model()
 {
+  cout << get_time() << "Log Info ****"
+       << "Begin write_model...\n";
     if (config.find("output_textfile_model_filename") != config.end()) {
         string format_string = config["output_textfile_model_format_string"] + "%c";
         const char *format = format_string.c_str();
@@ -214,6 +248,8 @@ void write_model()
         }
         fclose(f);
     }
+    cout << get_time() << "Log Info ****"
+         << "End write_model...\n";
 }
 
 void free_model()
@@ -236,20 +272,20 @@ int main(int argc, char *argv[])
         printf("Usage: ./BLM config.cfg\n");
         exit(EXIT_FAILURE);
     }
-    
+
     config = get_config(argv[1]);
-    
+
     load_network(config["network_filename"].c_str());
-    
+
     initialize_variables();
-    
+
     initialize_model();
-    
+
     learn_model();
-    
+
     write_model();
-    
+
     free_model();
-    
+
     cerr << double(clock()) / CLOCKS_PER_SEC << endl;
 }
